@@ -1,0 +1,20 @@
+import time
+import serial
+
+# Set up RS-485 (receiver) on the PC side
+# Replace with your own COM port and baud rate for RS-485 communication
+ser = serial.Serial('COM3', 9600, timeout=1)  # COM port and baud rate
+
+print("Receiver initialized. Waiting for data...")
+
+# Loop to check for incoming data
+while True:
+    if ser.in_waiting > 0:  # If data is available in the input buffer
+        received_data = ser.readline().decode('utf-8').strip()  # Read data from serial port and decode
+
+        # Print the received data
+        print(f"Received: {received_data}")
+
+    time.sleep(0.1)  # Small delay to avoid excessive CPU usage
+
+

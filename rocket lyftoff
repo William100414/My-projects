@@ -1,0 +1,38 @@
+#include <SoftwareSerial.h>
+
+// Set up RS-485 (receiver) on the Arduino side
+#define RELAY_PIN 7  // Pin connected to the relay to control the igniter
+
+// Set up SoftwareSerial for RS-485 (RX pin, TX pin)
+SoftwareSerial rs485Serial(10, 11);  // RX on pin 10, TX on pin 11 (adjust pins as needed)
+
+void setup() {
+  Serial.begin(9600);  // Initialize serial monitor for debugging
+  rs485Serial.begin(9600);  // Initialize RS-485 communication at 9600 baud
+  pinMode(RELAY_PIN, OUTPUT);  // Set relay pin as output
+
+  Serial.println("Receiver ready. Waiting for signal...");
+}
+
+void loop() {
+  // Check if data is available from RS-485
+  if (rs485Serial.available()) {
+    char receivedSignal[32] = "";  // Buffer for received data
+    int i = 0;
+    
+    // Read incoming data into the buffer
+    while (rs485Serial.available() && i < sizeof(receivedSignal) - 1) {
+      receivedSignal[i++] = rs485Serial.read();
+    }
+    receivedSignal[i] = '\0';  // Null-terminate the string
+    
+    // Check if the signal is "ON"
+    if (String(receivedSignal) == "ON") {
+      Serial.println("Signal received: Turning ON Electric Igniter");
+      digitalWrite(RELAY_PIN, HIGH);  // Turn on the relay to activate the igniter
+      delay(5000);  // Keep the igniter on for 5 seconds
+      digitalWrite(RELAY_PIN, LOW);  // Turn off the relay
+      Serial.println("Igniter turned off");
+    }
+  }
+}

@@ -1,0 +1,17 @@
+import keyboard
+import serial
+from time import sleep
+
+# Set up RS-485 (transceiver) on the PC side
+# Replace with your own COM port and baud rate for RS-485 communication
+ser = serial.Serial('COM3', 9600, timeout=1)  # COM port and baud rate
+
+print("Waiting for 'Enter' key press to send signal...")
+
+while True:
+    if keyboard.is_pressed('enter'):  # When Enter key is pressed
+        signal = "ON"
+        ser.write(signal.encode())  # Send signal over RS-485
+        print("Signal sent: Electric igniter ON")
+        sleep(1)  # Prevent multiple triggers in one key press
+    sleep(0.1)

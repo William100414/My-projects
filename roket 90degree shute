@@ -1,0 +1,145 @@
+#include <Wire.h>
+#include <MPU6050.h>
+#include <SPI.h>
+#include <SD.h>
+
+int t;
+
+// Create an instance of the MPU6050 sensor
+MPU6050 mpu;
+
+// Pin to control parachute deployment (e.g., relay or transistor to trigger parachute deployment)
+#define PARACHUTE_PIN 9  // Set this to the pin connected to the relay or transistor
+
+// Pin for the SD card module
+#define SD_CS_PIN 10
+
+// File object for logging
+File logFile;
+
+// Variables to store pitch angle and timer
+float pitch;
+unsigned long parachuteDeployTime = 0;  // Timer to track time since parachute deployment
+
+// Thresholds for deploying the parachute
+#define PITCH_THRESHOLD_HIGH 90.0   // Pitch angle for parachute deployment (+90 degrees)
+#define PITCH_THRESHOLD_LOW -90.0   // Pitch angle for parachute deployment (-90 degrees)
+
+void setup() {
+  // Start serial communication
+  Serial.begin(9600);
+
+  // Initialize the MPU6050 sensor
+  Wire.begin();
+  mpu.initialize();
+
+  // Check if the MPU6050 is connected
+  if (!mpu.testConnection()) {
+    Serial.println("MPU6050 connection failed!");
+    while (1);
+  }
+
+  // Initialize SD card
+  if (!SD.begin(SD_CS_PIN)) {
+    Serial.println("SD card initialization failed!");
+    return;
+  }
+  Serial.println("SD card is ready.");
+
+  // Open the file for logging data
+  logFile = SD.open("log.txt", FILE_WRITE);
+  if (logFile) {
+    logFile.println("Time (ms), Event, Pitch (degrees), Elapsed Time (ms)");  // Header for the log file
+    logFile.close();
+  } else {
+    Serial.println("Error opening log file.");
+  }
+
+  // Set the parachute pin as output
+  pinMode(PARACHUTE_PIN, OUTPUT);
+  digitalWrite(PARACHUTE_PIN, LOW);  // Initially, parachute is not deployed
+}
+
+void loop() {
+  // Variables to store accelerometer data
+  int16_t ax, ay, az;
+
+  // Get accelerometer data from MPU6050
+  mpu.getAcceleration(&ax, &ay, &az);
+
+  // Calculate pitch angle from accelerometer data
+  // Pitch angle is calculated using the formula: pitch = atan2(ay, sqrt(ax^2 + az^2)) * 180 / PI
+  pitch = atan2(ay, sqrt(ax * ax + az * az)) * 180.0 / PI;
+
+  // Print the pitch value to the Serial Monitor
+  Serial.print("Pitch: ");
+  Serial.print(pitch);
+  Serial.println(" degrees");
+
+  // Check if the pitch angle exceeds the threshold for parachute deployment
+  if (pitch >= PITCH_THRESHOLD_HIGH) {
+    deployParachute();
+  } else if (pitch <= PITCH_THRESHOLD_LOW) {
+    deployParachute();
+  }
+
+  // Small delay to reduce serial output frequency and sensor readings
+  delay(500);
+}
+
+void deployParachute() {
+  // Trigger the parachute deployment (e.g., activate relay or transistor)
+  Serial.println("Deploying parachute!");
+
+  // Activate the parachute (set pin HIGH)
+  digitalWrite(PARACHUTE_PIN, HIGH);
+
+  // Log the event to the Serial Monitor and SD card
+  logEvent("Parachute Deployed");
+
+  // Start the timer to track the elapsed time after deployment
+  if (parachuteDeployTime == 0) {
+    parachuteDeployTime = millis();  // Start timer when parachute is deployed
+  }
+
+  // Wait for 2 seconds to ensure the parachute is deployed
+  delay(2000);
+
+  // Deactivate parachute pin (set pin LOW) to reset
+  digitalWrite(PARACHUTE_PIN, LOW);
+
+  // Optionally, you can add more logic to prevent multiple deployments
+}
+
+void logEvent(String event) {
+  // Get current time in milliseconds
+  unsigned long currentTime = millis();
+
+  // Calculate the elapsed time since parachute deployment (in ms)
+  unsigned long elapsedTime = parachuteDeployTime == 0 ? 0 : currentTime - parachuteDeployTime;
+
+  // Print to Serial Monitor
+  Serial.print("Time: ");
+  Serial.print(currentTime);
+  Serial.print(", Event: ");
+  Serial.print(event);
+  Serial.print(", Pitch: ");
+  Serial.print(pitch);
+  Serial.print(", Elapsed Time: ");
+  Serial.println(elapsedTime);
+
+  // Log to SD card
+  logFile = SD.open("log.txt", FILE_WRITE);
+  if (logFile) {
+    logFile.print(currentTime);
+    logFile.print(", ");
+    logFile.print(event);
+    logFile.print(", ");
+    logFile.print(pitch);
+    logFile.print(", ");
+    logFile.println(elapsedTime);
+    logFile.close();  // Close the file after writing
+  } else {
+    Serial.println("Error opening log file.");
+  }
+}

@@ -1,0 +1,44 @@
+// Define the pin connected to the parachute deployment system (e.g., relay or servo)
+const int parachutePin = 9;  // Changed to pin 9
+
+// Define the time delay in seconds before deployment
+// You can change this value to adjust the delay time
+int deploymentDelay = 10;  // Time in seconds before parachute is deployed
+
+void setup() {
+  // Initialize the parachutePin as an output
+  pinMode(parachutePin, OUTPUT);
+  
+  // Start the serial communication for debugging
+  Serial.begin(9600);
+  
+  // Print the delay time to the serial monitor for reference
+  Serial.print("Parachute deployment in ");
+  Serial.print(deploymentDelay);
+  Serial.println(" seconds.");
+  
+  // Wait for the specified delay
+  delay(deploymentDelay * 1000); // Convert seconds to milliseconds
+  
+  // Deploy parachute (send a signal to the parachute system)
+  deployParachute();
+}
+
+void loop() {
+  // The parachute deployment happens only once, so no need for further code in loop.
+}
+
+// Function to send an electrical signal to deploy the parachute
+void deployParachute() {
+  // Activate the parachute system (e.g., send HIGH signal to trigger a relay or servo)
+  digitalWrite(parachutePin, HIGH);
+  
+  // Print deployment confirmation to the serial monitor
+  Serial.println("Parachute deployed!");
+  
+  // Wait for 1 second to simulate parachute deployment time
+  delay(1000);
+  
+  // Turn off the signal (optional, if needed for your system)
+  digitalWrite(parachutePin, LOW);
+}

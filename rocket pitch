@@ -1,0 +1,104 @@
+#include <Wire.h>
+#include <MPU6050.h>
+#include <SPI.h>
+#include <SD.h>
+
+int t;
+
+// Pin for SD card module
+#define SD_CS_PIN 10
+// Create an instance of the MPU6050 sensor
+MPU6050 mpu;
+
+// File object for logging
+File logFile;
+
+// Variables for speed calculation
+float ax, ay, az;         // Accelerometer data
+float axPrevious = 0.0;   // Previous acceleration (x)
+float ayPrevious = 0.0;   // Previous acceleration (y)
+float azPrevious = 0.0;   // Previous acceleration (z)
+float speed = 0.0;        // Calculated speed (in meters per second)
+unsigned long previousMillis = 0;  // Timer for logging every 5 seconds
+unsigned long interval = 5000;     // 5 seconds interval
+
+void setup() {
+  // Start serial communication
+  Serial.begin(9600);
+
+  // Initialize the MPU6050 sensor
+  Wire.begin();
+  mpu.initialize();
+
+  // Check if the MPU6050 is connected
+  if (!mpu.testConnection()) {
+    Serial.println("MPU6050 connection failed!");
+    while (1);
+  }
+
+  // Initialize SD card
+  if (!SD.begin(SD_CS_PIN)) {
+    Serial.println("SD card initialization failed!");
+    return;
+  }
+  Serial.println("SD card is ready.");
+
+  // Open the file for logging data
+  logFile = SD.open("log.txt", FILE_WRITE);
+  if (logFile) {
+    logFile.println("Time (ms), Speed (m/s)");  // Header for the log file
+    logFile.close();
+  } else {
+    Serial.println("Error opening log file.");
+  }
+}
+
+void loop() {
+  // Get accelerometer data from MPU6050
+  mpu.getAcceleration(int16_t(ax), int16_t(ay), int16_t(az));
+
+  // Convert accelerometer values from raw units to acceleration in m/s^2
+  float ax_mps2 = ax / 16384.0 * 9.81; // Convert to m/s^2
+  float ay_mps2 = ay / 16384.0 * 9.81;
+  float az_mps2 = az / 16384.0 * 9.81;
+
+  // Calculate speed by integrating acceleration over time
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= interval) {
+    // Log the speed every 5 seconds
+    previousMillis = currentMillis;
+
+    // Estimate speed from accelerometer data (simple integration)
+    float deltaX = (ax_mps2 + axPrevious) / 2.0 * (interval / 1000.0);  // Speed change due to x-acceleration
+    float deltaY = (ay_mps2 + ayPrevious) / 2.0 * (interval / 1000.0);  // Speed change due to y-acceleration
+    float deltaZ = (az_mps2 + azPrevious) / 2.0 * (interval / 1000.0);  // Speed change due to z-acceleration
+
+    // Calculate total speed (simple Euclidean sum of speed components)
+    speed += sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+
+    // Log the speed to the Serial Monitor and SD card
+    logSpeed(currentMillis, speed);
+
+    // Update previous acceleration values for the next iteration
+    axPrevious = ax_mps2;
+    ayPrevious = ay_mps2;
+    azPrevious = az_mps2;
+  }
+
+  // Small delay to avoid overwhelming the Serial Monitor
+  delay(100);
+}
+
+void logSpeed(unsigned long currentTime, float currentSpeed) {
+  // Log to Serial Monitor
+  Serial.print("Time: ");
+  Serial.print(currentTime);
+  Serial.print(", Speed: ");
+  Serial.println(currentSpeed);
+
+  // Log to SD card
+  logFile = SD.open("log.txt", FILE_WRITE);
+  if (logFile) {
+    logFile.print(currentTime);
+    logFile.print(", ");
+    logFile.pri

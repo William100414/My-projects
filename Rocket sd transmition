@@ -1,0 +1,56 @@
+#include <SPI.h>
+#include <SD.h>
+#include <SoftwareSerial.h>
+
+// Pin configuration
+#define SD_CS_PIN 10
+#define RELAY_PIN 7  // Example relay control pin (if you want to add relay control)
+#define RX_PIN 8     // RS-485 RX pin
+#define TX_PIN 9     // RS-485 TX pin
+
+// Set up SoftwareSerial for RS-485 (RX pin, TX pin)
+SoftwareSerial rs485Serial(RX_PIN, TX_PIN);  // RX on pin 8, TX on pin 9 (adjust as needed)
+
+File dataFile;
+
+void setup() {
+  // Initialize Serial Monitor for debugging
+  Serial.begin(9600);
+  
+  // Initialize SD card
+  if (!SD.begin(SD_CS_PIN)) {
+    Serial.println("SD card initialization failed!");
+    return;
+  }
+  Serial.println("SD card initialized.");
+
+  // Initialize RS-485 communication
+  rs485Serial.begin(9600);  // Baud rate for RS-485 communication
+
+  // Open file on SD card
+  dataFile = SD.open("data.txt");
+  
+  if (dataFile) {
+    Serial.println("Sending data from SD card...");
+    while (dataFile.available()) {
+      // Read data from SD card and send over RS-485
+      String data = dataFile.readStringUntil('\n');
+      
+      // Send data over RS-485
+      rs485Serial.println(data);  // Send the data as a string with newline
+      Serial.print("Sent: ");
+      Serial.println(data);
+      
+      delay(1000);  // Delay between transmissions
+    }
+    dataFile.close();
+    Serial.println("Data transmission complete.");
+  } else {
+    Serial.println("Error opening data.txt");
+  }
+}
+
+void loop() {
+  // The loop is empty since this example does one-time data transmission from SD card
+  // You can add functionality for re-sending data or continuous communication if needed
+}

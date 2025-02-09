@@ -1,0 +1,107 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BMP280_U.h>
+#include <SPI.h>
+#include <SD.h>
+
+// Create an instance of the BMP280 sensor
+Adafruit_BMP280_Unified bmp;
+
+// Pin for the SD card module
+#define SD_CS_PIN 10
+
+// Variables for altitude, previous altitude, timer, and logging
+float currentAltitude = 0.0;
+float previousAltitude = 0.0;
+unsigned long startTime = 0;   // To store the start time of the event
+unsigned long elapsedTime = 0; // To store the elapsed time
+
+// Define the threshold for detecting a significant altitude change
+#define ALTITUDE_THRESHOLD 5.0  // Change in meters to start the timer
+
+// File object for logging
+File logFile;
+
+void setup() {
+  // Start serial communication
+  Serial.begin(9600);
+
+  // Initialize the BMP280 sensor
+  if (!bmp.begin()) {
+    Serial.println("Couldn't find the sensor!");
+    while (1);
+  }
+
+  // Initialize SD card
+  if (!SD.begin(SD_CS_PIN)) {
+    Serial.println("SD card initialization failed!");
+    return;
+  }
+  Serial.println("SD card is ready.");
+
+  // Open the file for logging data
+  logFile = SD.open("log.txt", FILE_WRITE);
+  if (logFile) {
+    logFile.println("Time (ms), Altitude (m), Elapsed Time (ms)");  // Header for the log file
+    logFile.close();
+  } else {
+    Serial.println("Error opening log file.");
+  }
+
+  // Log a header to the Serial Monitor
+  Serial.println("Altitude Change Logger");
+  Serial.println("Time (ms), Altitude (m), Elapsed Time (ms)");
+}
+
+void loop() {
+  // Variable to store sensor data
+  sensors_event_t event;
+  bmp.getEvent(&event);
+
+  // If the sensor data is valid
+  if (event.pressure) {
+    // Convert the pressure reading to altitude
+    currentAltitude = bmp.pressureToAltitude(1013.25, event.pressure); // 1013.25 hPa is the standard sea-level pressure
+
+    // Check if the altitude has changed significantly
+    if (abs(currentAltitude - previousAltitude) >= ALTITUDE_THRESHOLD) {
+      // If a change in altitude is detected, start the timer if it isn't already running
+      if (startTime == 0) {
+        startTime = millis();  // Start the timer
+        Serial.println("Altitude change detected! Starting timer...");
+      }
+    }
+
+    // If the timer has started, calculate the elapsed time
+    if (startTime > 0) {
+      elapsedTime = millis() - startTime;
+    }
+
+    // Print the data to the Serial Monitor
+    Serial.print("Time: ");
+    Serial.print(millis());
+    Serial.print(", Altitude: ");
+    Serial.print(currentAltitude);
+    Serial.print(" m, Elapsed Time: ");
+    Serial.print(elapsedTime);
+    Serial.println(" ms");
+
+    // Log the data to the SD card
+    logFile = SD.open("log.txt", FILE_WRITE);
+    if (logFile) {
+      logFile.print(millis());
+      logFile.print(", ");
+      logFile.print(currentAltitude);
+      logFile.print(", ");
+      logFile.println(elapsedTime);
+      logFile.close();  // Close the file after writing
+    } else {
+      Serial.println("Error opening log file.");
+    }
+
+    // Store the current altitude as previous altitude for the next loop iteration
+    previousAltitude = currentAltitude;
+  }
+
+  delay(500);  // Wait for half a second before the next reading
+}
